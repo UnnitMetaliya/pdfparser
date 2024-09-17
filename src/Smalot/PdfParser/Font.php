@@ -216,21 +216,6 @@ class Font extends PDFObject
             // Support for multiple bfrange sections
             if (preg_match_all('/beginbfrange(?P<sections>.*?)endbfrange/s', $content, $matches)) {
                 foreach ($matches['sections'] as $section) {
-                    // Support for : <srcCode1> <srcCode2> <dstString>
-                    $regexp = '/<(?P<from>[0-9A-F]+)> *<(?P<to>[0-9A-F]+)> *<(?P<offset>[0-9A-F]+)>[ \r\n]+/is';
-
-                    preg_match_all($regexp, $section, $matches);
-
-                    foreach ($matches['from'] as $key => $from) {
-                        $char_from = hexdec($from);
-                        $char_to = hexdec($matches['to'][$key]);
-                        $offset = hexdec($matches['offset'][$key]);
-
-                        for ($char = $char_from; $char <= $char_to; ++$char) {
-                            $this->table[$char] = self::uchr($char - $char_from + $offset);
-                        }
-                    }
-
                     // Support for : <srcCode1> <srcCodeN> [<dstString1> <dstString2> ... <dstStringN>]
                     // Some PDF file has 2-byte Unicode values on new lines > added \r\n
                     $regexp = '/<(?P<from>[0-9A-F]+)> *<(?P<to>[0-9A-F]+)> *\[(?P<strings>[\r\n<>0-9A-F ]+)\][ \r\n]+/is';
@@ -255,6 +240,25 @@ class Font extends PDFObject
                                 $text .= self::uchr(hexdec($part));
                             }
                             $this->table[$char_from + $position] = $text;
+                        }
+
+                        // Remove these found matches from the bfrange section
+                        // This prevents the regexp below from finding false matches
+                        $section = str_replace($matches[0][$key], '', $section);
+                    }
+
+                    // Support for : <srcCode1> <srcCode2> <dstString>
+                    $regexp = '/<(?P<from>[0-9A-F]+)> *<(?P<to>[0-9A-F]+)> *<(?P<offset>[0-9A-F]+)>[ \r\n]+/is';
+
+                    preg_match_all($regexp, $section, $matches);
+
+                    foreach ($matches['from'] as $key => $from) {
+                        $char_from = hexdec($from);
+                        $char_to = hexdec($matches['to'][$key]);
+                        $offset = hexdec($matches['offset'][$key]);
+
+                        for ($char = $char_from; $char <= $char_to; ++$char) {
+                            $this->table[$char] = self::uchr($char - $char_from + $offset);
                         }
                     }
                 }
